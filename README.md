@@ -9,6 +9,18 @@ _Tested with rust 1.54_
 
 A simple Rust-based server for map tiles stored in mbtiles format.
 
+
+## Installation
+```
+apt install -y build-essential libsqlite3-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+cd /rust-mbtileserver
+cargo build --release
+mkdir -p /var/www/tiles
+/var/www/intern/rust-mbtileserver/target/release/mbtileserver --allowed-hosts "*" --directory "/var/www/tiles" --port 3636 &
+```
+
 ## Usage
 
 Run `mbtileserver --help` for a list and description of the available flags:
