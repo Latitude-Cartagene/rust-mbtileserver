@@ -50,6 +50,8 @@ pub struct Args {
     pub real_reload_interval: Option<Duration>,
     #[clap(long, help = "Disable fs watcher for automatic tileset reloading")]
     pub disable_watcher: bool,
+    #[clap(long, help = "Command to run on tileset reload")]
+    pub reload_command: Option<String>,
 }
 
 impl Args {
@@ -61,7 +63,11 @@ impl Args {
                 self.directory.display()
             )));
         }
-        self.tilesets = Some(discover_tilesets(String::new(), self.directory.clone()));
+        self.tilesets = Some(discover_tilesets(
+            String::new(),
+            self.directory.clone(),
+            self.reload_command.clone(),
+        ));
         self.allowed_hosts
             .iter_mut()
             .for_each(|v| *v = v.trim().to_string());

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -55,6 +56,7 @@ pub struct UTFGrid {
 struct TilesetsData {
     pub data: HashMap<String, TileMeta>,
     pub path: PathBuf,
+    pub reload_command: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -62,9 +64,17 @@ pub struct Tilesets {
     data: Arc<Mutex<TilesetsData>>,
 }
 impl Tilesets {
-    pub fn new(data: HashMap<String, TileMeta>, path: PathBuf) -> Tilesets {
+    pub fn new(
+        data: HashMap<String, TileMeta>,
+        path: PathBuf,
+        reload_command: Option<String>,
+    ) -> Tilesets {
         Tilesets {
-            data: Arc::new(Mutex::new(TilesetsData { data, path })),
+            data: Arc::new(Mutex::new(TilesetsData {
+                data,
+                path,
+                reload_command,
+            })),
         }
     }
 
@@ -86,9 +96,33 @@ impl Tilesets {
 
     pub fn reload(&self) {
         let mut data = self.data.lock().unwrap();
-        let replacement = discover_tilesets(String::new(), data.path.clone());
+        let replacement = discover_tilesets(
+            String::new(),
+            data.path.clone(),
+            data.reload_command.clone(),
+        );
         data.data.clear();
         data.data.extend(replacement);
+        drop(data);
+        self.reload_command();
+    }
+
+    pub fn reload_command(&self) {
+        let command = self.data.lock().unwrap().reload_command.clone();
+        match command {
+            Some(cmd) => {
+                let output = Command::new("sh").arg("-c").arg(cmd).output();
+                match output {
+                    Ok(out) => {
+                        println!("Reload command: {}", out.status);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to run reload command: {}", e)
+                    }
+                }
+            }
+            None => {}
+        }
     }
 }
 impl IntoIterator for Tilesets {
@@ -197,7 +231,11 @@ pub fn get_tile_details(path: &Path, tile_name: &str) -> Result<TileMeta> {
     Ok(metadata)
 }
 
-pub fn discover_tilesets(parent_dir: String, path: PathBuf) -> Tilesets {
+pub fn discover_tilesets(
+    parent_dir: String,
+    path: PathBuf,
+    reload_command: Option<String>,
+) -> Tilesets {
     // Walk through the given path and its subfolders, find all valid mbtiles and create and return a map of mbtiles file names to their absolute path
     let mut tiles = HashMap::new();
     for p in read_dir(path.clone()).unwrap() {
@@ -207,7 +245,11 @@ pub fn discover_tilesets(parent_dir: String, path: PathBuf) -> Tilesets {
             let mut parent_dir_cloned = parent_dir.clone();
             parent_dir_cloned.push_str(dir_name);
             parent_dir_cloned.push('/');
-            tiles.extend(discover_tilesets(parent_dir_cloned, p));
+            tiles.extend(discover_tilesets(
+                parent_dir_cloned,
+                p,
+                reload_command.clone(),
+            ));
         } else if p.extension().and_then(OsStr::to_str) == Some("mbtiles") {
             let file_name = p.file_stem().and_then(OsStr::to_str).unwrap();
             let mut parent_dir_cloned = parent_dir.clone();
@@ -221,7 +263,7 @@ pub fn discover_tilesets(parent_dir: String, path: PathBuf) -> Tilesets {
             };
         }
     }
-    Tilesets::new(tiles, path)
+    Tilesets::new(tiles, path, reload_command)
 }
 
 fn get_grid_info(tile_name: &str, connection: &Connection) -> Option<DataFormat> {
@@ -322,7 +364,7 @@ mod tests {
 
     #[test]
     fn get_list_of_valid_tilesets() {
-        let tilesets = discover_tilesets(String::new(), PathBuf::from("./tiles"));
+        let tilesets = discover_tilesets(String::new(), PathBuf::from("./tiles"), None);
         // 2 out of 7 tilesets in ./tiles directory are invalid
         assert_eq!(tilesets.len(), 5);
 
