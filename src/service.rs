@@ -1,8 +1,7 @@
 use hyper::header::{CONTENT_ENCODING, CONTENT_TYPE, HOST};
 use hyper::{Body, Request, Response, StatusCode};
-
+use lazy_static::lazy_static;
 use regex::Regex;
-
 use serde_json::json;
 
 use crate::errors::Result;
@@ -117,10 +116,10 @@ pub async fn get_service(
     let uri = request.uri();
     let path = uri.path();
     let scheme = match uri.scheme_str() {
-        Some(scheme) => format!("{}://", scheme),
-        None => String::from("http://"),
+        Some(scheme) => format!("{scheme}://"),
+        None => "http://".to_string(),
     };
-    let base_url = format!("{}{}/services", scheme, host);
+    let base_url = format!("{scheme}{host}/services");
 
     match TILE_URL_RE.captures(path) {
         Some(matches) => {
@@ -193,7 +192,7 @@ pub async fn get_service(
                     for (tile_name, tile_meta) in tilesets {
                         tiles_summary.push(TileSummaryJSON {
                             image_type: tile_meta.tile_format,
-                            url: format!("{}/{}", base_url, tile_name),
+                            url: format!("{base_url}/{tile_name}"),
                         });
                     }
                     let resp_json = serde_json::to_string(&tiles_summary).unwrap(); // TODO handle error
@@ -211,72 +210,59 @@ pub async fn get_service(
                         if segments[segments.len() - 1] == "map" {
                             // Tileset map preview (/services/<tileset-path>/map)
                             let tile_name = segments[1..segments.len() - 1].join("/");
-                            match tilesets.get(&tile_name) {
+                            return match tilesets.get(&tile_name) {
                                 Some(_) => {
                                     if disable_preview {
                                         return Ok(not_found());
                                     }
-                                    return Ok(tile_map());
+                                    Ok(tile_map())
                                 }
                                 None => {
-                                    return Ok(bad_request(format!(
-                                        "Tileset does not exist: {}",
-                                        tile_name
-                                    )))
+                                    Ok(bad_request(format!("Tileset does not exist: {tile_name}")))
                                 }
-                            }
+                            };
                         }
-                        return Ok(bad_request(format!(
-                            "Tileset does not exist: {}",
-                            tile_name
-                        )));
+                        return Ok(bad_request(format!("Tileset does not exist: {tile_name}")));
                     }
                 };
                 let query_string = match request.uri().query() {
-                    Some(q) => format!("?{}", q),
+                    Some(q) => format!("?{q}"),
                     None => String::new(),
                 };
 
-                let mut tile_meta_json = json!({
-                    "name": tile_meta.name,
-                    "version": tile_meta.version,
-                    "tiles": vec![format!(
-                        "{}/{}/tiles/{{z}}/{{x}}/{{y}}.{}{}",
-                        base_url,
-                        tile_name,
-                        tile_meta.tile_format.format(),
-                        query_string
-                    )],
-                    "tilejson": tile_meta.tilejson,
-                    "scheme": tile_meta.scheme,
-                    "id": tile_meta.id,
-                    "format": tile_meta.tile_format,
-                    "grids": tile_meta.grid_format.map(|_| vec![format!(
-                        "{}/{}/tiles/{{z}}/{{x}}/{{y}}.json{}",
-                        base_url, tile_name, query_string
-                    )]),
-                    "bounds": tile_meta.bounds,
-                    "center": tile_meta.center,
-                    "minzoom": tile_meta.minzoom,
-                    "maxzoom": tile_meta.maxzoom,
-                    "description": tile_meta.description,
-                    "attribution": tile_meta.attribution,
-                    "type": tile_meta.layer_type,
-                    "legend": tile_meta.legend,
-                    "template": tile_meta.template,
-                });
+                let mut tilejson = tile_meta.tilejson.clone();
+                tilejson.tiles[0] = format!(
+                    "{base_url}/{tile_name}/tiles/{{z}}/{{x}}/{{y}}.{format}{query_string}",
+                    format = tile_meta.tile_format.format()
+                );
+                tilejson.other.insert("id".to_string(), json!(tile_meta.id));
+                tilejson
+                    .other
+                    .insert("format".to_string(), json!(tile_meta.tile_format));
+                tilejson.other.insert(
+                    "grids".to_string(),
+                    json!(tile_meta.grid_format.map(|_| vec![format!(
+                        "{base_url}/{tile_name}/tiles/{{z}}/{{x}}/{{y}}.json{query_string}"
+                    )])),
+                );
+                tilejson
+                    .other
+                    .insert("type".to_string(), json!(tile_meta.layer_type));
                 if let Some(json_data) = tile_meta.json {
                     for (k, v) in json_data.as_object().unwrap() {
-                        tile_meta_json[k] = v.clone();
+                        tilejson.other.insert(k.to_string(), v.clone());
                     }
                 }
                 if !disable_preview {
-                    tile_meta_json["map"] = json!(format!("{}/{}/{}", base_url, tile_name, "map"));
+                    tilejson.other.insert(
+                        "map".to_string(),
+                        json!(format!("{base_url}/{tile_name}/map")),
+                    );
                 }
 
                 return Ok(Response::builder()
                     .header(CONTENT_TYPE, "application/json")
-                    .body(Body::from(serde_json::to_string(&tile_meta_json).unwrap()))
+                    .body(Body::from(serde_json::to_string(&tilejson).unwrap()))
                     .unwrap()); // TODO handle error
             } else if path == "/reload" {
                 if allow_reload_api {
@@ -310,7 +296,7 @@ mod tests {
         allow_reload: bool,
     ) -> Response<Body> {
         let request = Request::builder()
-            .uri(format!("{}{}", host, path))
+            .uri(format!("{host}{path}"))
             .body(Body::from(""))
             .unwrap();
 
@@ -318,7 +304,7 @@ mod tests {
         get_service(
             request,
             tilesets,
-            allowed_hosts.unwrap_or(vec![String::from("*")]),
+            allowed_hosts.unwrap_or(vec!["*".to_string()]),
             headers.unwrap_or(vec![]),
             disable_preview,
             allow_reload,
@@ -338,7 +324,7 @@ mod tests {
         let response = setup(
             "http://localhost",
             "/services",
-            Some(vec![String::from("example.com")]),
+            Some(vec!["example.com".to_string()]),
             None,
             false,
             false,
@@ -352,7 +338,7 @@ mod tests {
         let response = setup(
             "http://example.com",
             "/services",
-            Some(vec![String::from("*")]),
+            Some(vec!["*".to_string()]),
             None,
             false,
             false,
@@ -366,7 +352,7 @@ mod tests {
         let response = setup(
             "http://example.com",
             "/services",
-            Some(vec![String::from("example.com")]),
+            Some(vec!["example.com".to_string()]),
             None,
             false,
             false,
@@ -380,7 +366,7 @@ mod tests {
         let response = setup(
             "http://test.example.com",
             "/services",
-            Some(vec![String::from("example.com")]),
+            Some(vec!["example.com".to_string()]),
             None,
             false,
             false,
@@ -394,7 +380,7 @@ mod tests {
         let response = setup(
             "http://test.example.com",
             "/services",
-            Some(vec![String::from(".example.com")]),
+            Some(vec![".example.com".to_string()]),
             None,
             false,
             false,

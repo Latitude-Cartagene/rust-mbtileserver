@@ -1,10 +1,9 @@
 use crate::config::Args;
+use crate::service;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
 use notify::Watcher;
 use std::time::Duration;
-
-use crate::service;
 
 #[tokio::main]
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -14,7 +13,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let service = {
         let args = args.clone();
         make_service_fn(move |_conn| {
-            let tilesets = args.tilesets.clone();
+            let tilesets = args.tilesets.as_ref().unwrap().clone();
             let allowed_hosts = args.allowed_hosts.clone();
             let headers = args.headers.clone();
             let disable_preview = args.disable_preview;
@@ -35,7 +34,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sy
     };
 
     if args.allow_reload_signal {
-        let tilesets = args.tilesets.clone();
+        let tilesets = args.tilesets.as_ref().unwrap().clone();
         println!("Reloading on SIGHUP");
         tokio::spawn(async move {
             let mut handler =
@@ -48,8 +47,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sy
         });
     }
 
-    if let Some(interval) = args.reload_interval {
-        let tilesets = args.tilesets.clone();
+    if let Some(interval) = args.real_reload_interval {
+        let tilesets = args.tilesets.as_ref().unwrap().clone();
         println!("Reloading every {} seconds", interval.as_secs());
         tokio::spawn(async move {
             let mut timer = tokio::time::interval(interval);
@@ -61,13 +60,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sy
     }
 
     if !args.disable_watcher {
-        let tilesets = args.tilesets.clone();
+        let tilesets = args.tilesets.clone().unwrap();
         println!("Watching FS for changes on {:?}", tilesets.get_path());
         drop(std::thread::spawn(move || {
             let (tx, rx) = std::sync::mpsc::channel();
             let mut watcher = notify::watcher(tx, Duration::from_secs(10)).unwrap();
             watcher
-                .watch(&args.tilesets.get_path(), notify::RecursiveMode::Recursive)
+                .watch(&tilesets.get_path(), notify::RecursiveMode::Recursive)
                 .unwrap();
             loop {
                 match rx.recv() {
@@ -81,7 +80,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sy
         }));
     }
 
-    println!("Listening on http://{}", addr);
+    println!("Listening on http://{addr}");
     server.serve(service).await?;
 
     Ok(())

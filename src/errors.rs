@@ -21,18 +21,19 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::Config(message) => write!(f, "{}", message),
+            Error::Config(message) => write!(f, "{message}"),
             Error::MissingTable(tile_name) => {
-                write!(f, "Missing tiles or metadata tables: {}", tile_name)
+                write!(f, "Missing tiles or metadata tables: {tile_name}")
             }
             Error::InvalidDataFormat(data_format) => {
-                write!(f, "Invalid data format: {}", data_format)
+                write!(f, "Invalid data format: {data_format}")
             }
             Error::InvalidDataFormatQueryCategory(tile_name) => {
-                write!(f, "Invalid query category: {}", tile_name)
+                write!(f, "Invalid query category: {tile_name}")
             }
-            Error::UnknownTileFormat(tile_name) => write!(f, "Unknown tile format: {}", tile_name),
-            _ => write!(f, "{}", self),
+            Error::UnknownTileFormat(tile_name) => write!(f, "Unknown tile format: {tile_name}"),
+            Error::DBConnection(_) => write!(f, "Database connection error"),
+            Error::Pool(_) => write!(f, "Database pool connection error"),
         }
     }
 }

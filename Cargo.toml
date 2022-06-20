@@ -1,39 +1,41 @@
 [package]
 name = "mbtileserver"
-description = "A Rust-based mbtiles server"
-homepage = "https://github.com/ka7eh/rust-mbtileserver"
-repository = "https://github.com/ka7eh/rust-mbtileserver"
+description = "An mbtiles vector tile server"
+homepage = "https://github.com/maplibre/mbtileserver-rs"
+repository = "https://github.com/maplibre/mbtileserver-rs"
 version = "0.1.7"
 authors = ["Kaveh Karimi <ka7eh@pm.me>"]
-readme = "README.md"
-edition = "2018"
-license = "ISC"
+edition = "2021"
+license = "MIT/Apache-2.0"
 include = [
     "**/*.rs",
     "templates/static/dist/*",
     "templates/map.html",
     "Cargo.toml",
-    "README.md"
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
 ]
 
 [badges]
-coveralls = { repository = "ka7eh/rust-mbtileserver" }
+coveralls = { repository = "maplibre/mbtileserver-rs" }
 
 [dependencies]
-clap = "2.33"
-flate2 = "1.0"
+clap = { version = "3.1", features = ["derive"] }
+flate2 = "1"
 hyper = { version = "0.14", features = ["server", "http1", "http2", "tcp"] }
 lazy_static = "1.4"
-libsqlite3-sys = "0.22"
+libsqlite3-sys = "0.24"
 log = "0.4"
 pretty_env_logger = "0.4"
 r2d2 = "0.8"
-r2d2_sqlite = "0.18"
-regex = "1.3"
-rusqlite = "0.25"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.6", features = ["full"] }
+r2d2_sqlite = "0.20"
+regex = "1.5"
+rusqlite = "0.27"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tilejson = "0.3"
+tokio = { version = "1.18", features = ["full"] }
 notify = "4.0.17"
 
 [dev-dependencies]
