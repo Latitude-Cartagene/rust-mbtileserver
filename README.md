@@ -34,25 +34,45 @@ mbtileserver 0.1.7
 A simple mbtiles server
 
 USAGE:
-    mbtileserver [FLAGS] [OPTIONS]
-
-FLAGS:
-        --allow-reload-api       Allow reloading tilesets with /reload endpoint
-        --allow-reload-signal    Allow reloading tilesets with a SIGHUP
-        --disable-preview        Disable preview map
-        --disable-watcher        Disable fs watcher for automatic tileset reload
-    -h, --help                   Prints help information
-    -V, --version                Prints version information
+    mbtileserver [OPTIONS]
 
 OPTIONS:
-        --allowed-hosts <allowed_hosts>        A comma-separated list of allowed hosts [default: localhost, 127.0.0.1,
-                                               [::1]]
-    -d, --directory <directory>                Tiles directory
-                                                [default: ./tiles]
-    -H, --header <header>...                   Add custom header
-    -p, --port <port>                          Server port
-                                                [default: 3000]
-        --reload-interval <reload_interval>    An interval at which tilesets get reloaded
+        --allow-reload-api
+            Allow reloading tilesets with /reload endpoint
+
+        --allow-reload-signal
+            Allow reloading timesets with a SIGHUP
+
+        --allowed-hosts <ALLOWED_HOSTS>
+            "*" matches all domains and ".<domain>" matches all subdomains for the given domain
+            [default: localhost,127.0.0.1,[::1]]
+
+    -d, --directory <DIRECTORY>
+            Tiles directory [default: ./tiles]
+
+        --disable-preview
+            Disable preview map
+
+        --disable-watcher
+            Disable fs watcher for automatic tileset reloading
+
+    -h, --help
+            Print help information
+
+    -H, --header <HEADER>
+            Add custom header. Can be used multiple times.
+
+    -p, --port <PORT>
+            Server port [default: 3000]
+
+        --reload-command <RELOAD_COMMAND>
+            Command to run on tileset reload
+
+        --reload-interval <RELOAD_INTERVAL>
+            An interval at which tilesets get reloaded
+
+    -V, --version
+            Print version information
 ```
 
 Run `mbtileserver` to start serving the mbtiles in a given folder. The default folder is `./tiles` and you can change it with `-d` flag.

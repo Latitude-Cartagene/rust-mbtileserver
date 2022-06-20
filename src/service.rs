@@ -300,7 +300,7 @@ mod tests {
             .body(Body::from(""))
             .unwrap();
 
-        let tilesets = discover_tilesets(String::new(), PathBuf::from("./tiles"));
+        let tilesets = discover_tilesets(String::new(), PathBuf::from("./tiles"), None);
         get_service(
             request,
             tilesets,
